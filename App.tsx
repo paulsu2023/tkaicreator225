@@ -37,7 +37,7 @@ function App() {
       aspectRatio: AspectRatio.Ratio_9_16,
       imageResolution: ImageResolution.Res_2K,
       videoMode: VideoMode.Standard,
-      sceneCount: 0, // Default to 0 (Auto)
+      sceneCount: 1, // Default to 1
       imageModel: 'gemini-3-pro-image-preview', // Default to Banana Pro (Pro Image Preview)
       cameraDevice: 'iphone_16_pro_max', // Default Camera
       shootingStyle: 'fixed', // Default Style
@@ -373,8 +373,8 @@ function App() {
                         <label className={`block text-[10px] font-bold uppercase mb-1.5 ${state.settings.imageModel.includes('flash') ? 'text-slate-600' : 'text-slate-500'}`}>分辨率</label>
                         <select
                           className={`w-full bg-slate-950 border rounded-lg p-2.5 text-xs outline-none transition-colors ${state.settings.imageModel.includes('flash')
-                              ? 'border-slate-800 text-slate-500 cursor-not-allowed'
-                              : 'border-slate-700 text-slate-200 focus:border-brand-500'
+                            ? 'border-slate-800 text-slate-500 cursor-not-allowed'
+                            : 'border-slate-700 text-slate-200 focus:border-brand-500'
                             }`}
                           value={state.settings.imageResolution}
                           onChange={(e) => setState(prev => ({ ...prev, settings: { ...prev.settings, imageResolution: e.target.value as ImageResolution } }))}
