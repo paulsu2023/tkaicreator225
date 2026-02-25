@@ -54,8 +54,15 @@ const INITIAL_RETRY_DELAY = 2000;
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function withRetry<T>(operation: () => Promise<T>, retries = MAX_RETRIES, delay = INITIAL_RETRY_DELAY): Promise<T> {
+async function withRetry<T>(operation: () => Promise<T>, retries = MAX_RETRIES, delay = INITIAL_RETRY_DELAY, isProModel = false): Promise<T> {
   try {
+    // If it's a Pro model, inject an artificial buffer delay BEFORE the call
+    // This helps mitigate burst concurrent requests (which causes instant 429/500 and fallback)
+    if (isProModel) {
+      // Random jitter 500ms - 1500ms to space out concurrent requests
+      const jitterBuffer = 500 + Math.random() * 1000;
+      await sleep(jitterBuffer);
+    }
     return await operation();
   } catch (error: any) {
     const msg = error.message || '';
@@ -67,11 +74,13 @@ async function withRetry<T>(operation: () => Promise<T>, retries = MAX_RETRIES, 
     // Enhanced 429 check (Resource Exhausted)
     const isRateLimit = status === 429 || msg.includes('exhausted') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED');
 
-    // We retry 429s a few times with backoff, but usually it requires model switching
+    // For Pro models, we want to try harder (wait longer) before giving up and falling back
+    const effectiveDelay = isProModel ? delay * 1.5 : delay;
+
     if (retries > 0 && (isOverloaded || isInternalError || isRateLimit)) {
-      console.warn(`Gemini API Warning: ${msg} (Status: ${status}). Retrying in ${delay}ms...`);
-      await sleep(delay);
-      return withRetry(operation, retries - 1, delay * 2);
+      console.warn(`Gemini API Warning: ${msg} (Status: ${status}). Retrying in ${effectiveDelay}ms...`);
+      await sleep(effectiveDelay);
+      return withRetry(operation, retries - 1, delay * 2, isProModel); // Keep original delay for math, but we slept longer
     }
     throw error;
   }
@@ -541,11 +550,12 @@ export const generateImage = async (
   }
 
   try {
+    const isPro = modelName === 'gemini-3-pro-image-preview';
     const apiCall = withRetry<GenerateContentResponse>(() => client.models.generateContent({
       model: modelName,
       contents: { parts },
       config: config
-    }));
+    }), 4, 2000, isPro); // Pass 4 retries and isPro flag
 
     let response: GenerateContentResponse;
 
