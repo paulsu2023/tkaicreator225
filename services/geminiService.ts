@@ -280,7 +280,7 @@ export const analyzeProduct = async (
   2. **分镜脚本-展示部分** (visual, action, camera): **必须使用中文**。
   3. **分镜脚本-翻译部分** (dialogue_cn): **必须使用中文**。
   4. **分镜脚本-生成部分** (visual_en, action_en, camera_en, prompt): **必须使用英文** (用于AI生成高质量画面)。
-  5. **对白 (dialogue)**: **必须使用地道的 ${targetLanguage}** (用于TTS配音)。不要使用 ${market.language}，除非 targetLanguage 就是它。
+  5. **对白 (dialogue)**: **必须使用地道的 ${targetLanguage}** (用于TTS配音)。**严禁在对白中出现 "POV" 或 "Point of view" 等旁白指示词，对白必须是纯粹的角色口语**。不要使用 ${market.language}，除非 targetLanguage 就是它。
   6. **assignedVoice**: **必须**从上述"可用声音列表"中选择一个最匹配的英文名字 (例如 "Kore")，**严禁**创造新名字。
 
   **输出结构要求**：
@@ -375,8 +375,8 @@ export const analyzeProduct = async (
               action_en: { type: Type.STRING, description: "English action description" },
               camera: { type: Type.STRING, description: "中文运镜描述" },
               camera_en: { type: Type.STRING, description: "English camera description" },
-              dialogue: { type: Type.STRING, description: "Target language dialogue" },
-              dialogue_cn: { type: Type.STRING, description: "中文对白翻译" },
+              dialogue: { type: Type.STRING, description: "Target language dialogue. NO 'POV' or stage directions." },
+              dialogue_cn: { type: Type.STRING, description: "中文对白翻译. 严禁出现POV或旁白提示" },
               prompt: {
                 type: Type.OBJECT,
                 properties: {
