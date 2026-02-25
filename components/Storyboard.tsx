@@ -315,11 +315,17 @@ export const Storyboard: React.FC<Props> = ({
                 // SCENE 1 GENERATION (or no anchor available)
                 // Use all available raw references to establish the look.
 
-                if (modelImages && modelImages.length > 0) referenceImages.push(...modelImages);
-                if (backgroundImages && backgroundImages.length > 0) referenceImages.push(...backgroundImages);
-                if (productImages && productImages.length > 0) {
+                // CRITICAL: We prioritize productImages FIRST for absolute product consistency.
+                if (productImages && productImages.length > 0) referenceImages.push(...productImages);
+
+                if (modelImages && modelImages.length > 0) {
                     const remaining = 3 - referenceImages.length;
-                    if (remaining > 0) referenceImages.push(...productImages.slice(0, remaining));
+                    if (remaining > 0) referenceImages.push(...modelImages.slice(0, remaining));
+                }
+
+                if (backgroundImages && backgroundImages.length > 0) {
+                    const remaining = 3 - referenceImages.length;
+                    if (remaining > 0) referenceImages.push(...backgroundImages.slice(0, remaining));
                 }
             }
 
