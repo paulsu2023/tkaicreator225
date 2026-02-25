@@ -564,44 +564,40 @@ export const generateImage = async (
     // Pass through AbortError
     if (error.name === 'AbortError') throw error;
 
-    // Check if it's a quota or overloaded error, and fall back to the free Flash model
-    if (modelName === GEMINI_MODEL_IMAGE && isQuotaError(error)) {
-      console.warn(`Primary image model (${modelName}) crowded/exhausted. Falling back to free banana model (${GEMINI_MODEL_IMAGE_FALLBACK})...`);
-      try {
-        // Remove imageSize specific config as it might not be supported by fallback
-        const fallbackConfig = {
-          imageConfig: { aspectRatio: aspectRatio as any }
-        };
+    // Trigger fallback if not aborted, as 500/503/429 all mean Pro is struggling
+    console.warn(`Primary image model (${modelName}) failed/exhausted. Error: ${error.message}. Falling back to free banana model (${GEMINI_MODEL_IMAGE_FALLBACK})...`);
+    try {
+      // Remove imageSize specific config as it might not be supported by fallback
+      const fallbackConfig = {
+        imageConfig: { aspectRatio: aspectRatio as any }
+      };
 
-        const fallbackApiCall = withRetry<GenerateContentResponse>(() => client.models.generateContent({
-          model: GEMINI_MODEL_IMAGE_FALLBACK,
-          contents: { parts },
-          config: fallbackConfig
-        }));
+      const fallbackApiCall = withRetry<GenerateContentResponse>(() => client.models.generateContent({
+        model: GEMINI_MODEL_IMAGE_FALLBACK,
+        contents: { parts },
+        config: fallbackConfig
+      }));
 
-        let response: GenerateContentResponse;
-        if (signal) {
-          const abortPromise = new Promise<never>((_, reject) => {
-            const onAbort = () => {
-              signal.removeEventListener('abort', onAbort);
-              reject(new DOMException('Aborted', 'AbortError'));
-            };
-            signal.addEventListener('abort', onAbort);
-          });
-          response = await Promise.race([fallbackApiCall, abortPromise]);
-        } else {
-          response = await fallbackApiCall;
-        }
-        return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
-      } catch (fallbackError: any) {
-        // Pass through AbortError from fallback
-        if (fallbackError.name === 'AbortError') throw fallbackError;
-        // Throw original error or new error
-        throw fallbackError;
+      let response: GenerateContentResponse;
+      if (signal) {
+        const abortPromise = new Promise<never>((_, reject) => {
+          const onAbort = () => {
+            signal.removeEventListener('abort', onAbort);
+            reject(new DOMException('Aborted', 'AbortError'));
+          };
+          signal.addEventListener('abort', onAbort);
+        });
+        response = await Promise.race([fallbackApiCall, abortPromise]);
+      } else {
+        response = await fallbackApiCall;
       }
+      return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+    } catch (fallbackError: any) {
+      // Pass through AbortError from fallback
+      if (fallbackError.name === 'AbortError') throw fallbackError;
+      // Throw original error or new error
+      throw fallbackError;
     }
-
-    throw error;
   }
 };
 
