@@ -73,6 +73,7 @@ export interface GeneratedAsset {
   url: string; // Blob URL or Data URL
   mimeType: string;
   data?: string; // Base64 for re-use
+  actualModelUsed?: string; // Track which model generated the asset
 }
 
 export interface StoryboardScene extends SceneDraft {
@@ -80,7 +81,7 @@ export interface StoryboardScene extends SceneDraft {
   endImage?: GeneratedAsset;
   middleImage?: GeneratedAsset; // For Intermediate mode
   audio?: GeneratedAsset;
-  
+
   // General states
   isGeneratingImage: boolean; // Deprecated but kept for type compat if needed
   isGeneratingAudio: boolean;
@@ -90,7 +91,7 @@ export interface StoryboardScene extends SceneDraft {
   isGeneratingStart?: boolean;
   isGeneratingMiddle?: boolean;
   isGeneratingEnd?: boolean;
-  
+
   isUpdatingPrompt?: boolean; // New: Loader for prompt regeneration
 }
 

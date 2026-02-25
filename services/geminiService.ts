@@ -500,7 +500,7 @@ export const generateImage = async (
   // ENFORCE HYPER-REALISM & CONSISTENCY IN THE FINAL PROMPT
   // Base Realism
   // Added "single image, full frame, complete view" to combat split screen / cropping issues
-  let realismBoosters = " , single image, full frame, complete view, raw photo, 8k uhd, dslr, soft lighting, high quality, film grain. ";
+  let realismBoosters = " , extremely detailed and realistic facial features, highly detailed eyes, authentic skin texture, single image, full frame, complete view, raw photo, 8k uhd, dslr, soft lighting, high quality, film grain. ";
 
   // Append Specific Camera and Style
   if (cameraPrompt) {
@@ -559,7 +559,8 @@ export const generateImage = async (
       response = await apiCall;
     }
 
-    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+    const base64Data = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+    return { base64: base64Data, actualModelUsed: modelName };
   } catch (error: any) {
     // Pass through AbortError
     if (error.name === 'AbortError') throw error;
@@ -591,7 +592,8 @@ export const generateImage = async (
       } else {
         response = await fallbackApiCall;
       }
-      return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+      const base64Data = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+      return { base64: base64Data, actualModelUsed: GEMINI_MODEL_IMAGE_FALLBACK };
     } catch (fallbackError: any) {
       // Pass through AbortError from fallback
       if (fallbackError.name === 'AbortError') throw fallbackError;
