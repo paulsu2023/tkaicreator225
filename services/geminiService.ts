@@ -56,11 +56,9 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function withRetry<T>(operation: () => Promise<T>, retries = MAX_RETRIES, delay = INITIAL_RETRY_DELAY, isProModel = false): Promise<T> {
   try {
-    // If it's a Pro model, inject an artificial buffer delay BEFORE the call
-    // This helps mitigate burst concurrent requests (which causes instant 429/500 and fallback)
+    // If it's a Pro model, inject a very small buffer to space out rapid-fire clicks
     if (isProModel) {
-      // Random jitter 300ms - 800ms (Reduced to create faster staggering)
-      const jitterBuffer = 300 + Math.random() * 500;
+      const jitterBuffer = 100 + Math.random() * 300; // Snappy 100-400ms jitter
       await sleep(jitterBuffer);
     }
     return await operation();
@@ -318,8 +316,13 @@ export const analyzeProduct = async (
   // Prepare content parts
   const parts: any[] = [];
 
-  // Images
-  [...product.images, ...product.modelImages, ...product.backgroundImages].forEach(base64 => {
+  // Optimize Image Payload: Don't send too many redundant images to the analysis agent
+  // Priority: 3 Product Images, 2 Model Images, 1 Background Image (Max 6 total)
+  const productImgs = product.images.slice(0, 3);
+  const modelImgs = product.modelImages.slice(0, 2);
+  const bgImgs = product.backgroundImages.slice(0, 1);
+
+  [...productImgs, ...modelImgs, ...bgImgs].forEach(base64 => {
     parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64 } });
   });
 
@@ -535,11 +538,13 @@ export const generateImage = async (
 
   const finalPrompt = textPrompt + realismBoosters + negativeConstraints;
 
+  // IMPORTANT: Text must come first for most reliable results in Gemini Image API
   const parts: any[] = [{ text: finalPrompt }];
 
-  // Limit reference images for Banana Pro to 3 to reduce payload size and instability (500 errors)
-  referenceImages.slice(0, 3).forEach(ref => {
-    parts.unshift({ inlineData: { mimeType: 'image/jpeg', data: ref } });
+  // Limit reference images for Banana Pro to 2 (instead of 3) to drastically reduce payload size and instability.
+  // This helps prevent 500 errors and allows for smoother 429 handling.
+  referenceImages.slice(0, 2).forEach(ref => {
+    parts.push({ inlineData: { mimeType: 'image/jpeg', data: ref } });
   });
 
   // Construct config dynamically based on model capabilities
@@ -547,10 +552,8 @@ export const generateImage = async (
     imageConfig: { aspectRatio: aspectRatio as any }
   };
 
-  // Only add imageSize if model supports it (Gemini 3 Pro Image)
-  if (modelName === 'gemini-3-pro-image-preview') {
-    config.imageConfig.imageSize = resolution as any;
-  }
+  // REMOVED 'imageSize' as it is likely causing schema validation errors or internal 500s 
+  // on the preview model API. AspectRatio is the primary control for resolution in this SDK version.
 
   try {
     const isPro = modelName === 'gemini-3-pro-image-preview';
