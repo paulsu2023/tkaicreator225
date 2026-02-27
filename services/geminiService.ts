@@ -49,8 +49,8 @@ const getClient = async (): Promise<GoogleGenAI> => {
 };
 
 // Retry Helper
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY = 2000;
+const MAX_RETRIES = 2; // Reduce max retries from 3 to 2 for faster failover
+const INITIAL_RETRY_DELAY = 1000; // Reduce base delay from 2000 to 1000ms
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -59,8 +59,8 @@ async function withRetry<T>(operation: () => Promise<T>, retries = MAX_RETRIES, 
     // If it's a Pro model, inject an artificial buffer delay BEFORE the call
     // This helps mitigate burst concurrent requests (which causes instant 429/500 and fallback)
     if (isProModel) {
-      // Random jitter 500ms - 1500ms to space out concurrent requests
-      const jitterBuffer = 500 + Math.random() * 1000;
+      // Random jitter 300ms - 800ms (Reduced to create faster staggering)
+      const jitterBuffer = 300 + Math.random() * 500;
       await sleep(jitterBuffer);
     }
     return await operation();
@@ -74,13 +74,13 @@ async function withRetry<T>(operation: () => Promise<T>, retries = MAX_RETRIES, 
     // Enhanced 429 check (Resource Exhausted)
     const isRateLimit = status === 429 || msg.includes('exhausted') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED');
 
-    // For Pro models, we want to try harder (wait longer) before giving up and falling back
-    const effectiveDelay = isProModel ? delay * 1.5 : delay;
+    // For Pro models, let it fail faster if overloaded, try only slightly longer delay
+    const effectiveDelay = delay;
 
     if (retries > 0 && (isOverloaded || isInternalError || isRateLimit)) {
-      console.warn(`Gemini API Warning: ${msg} (Status: ${status}). Retrying in ${effectiveDelay}ms...`);
+      console.warn(`Gemini API Warning: ${msg} (Status: ${status}). Retrying in ${effectiveDelay}ms... (Retries left: ${retries - 1})`);
       await sleep(effectiveDelay);
-      return withRetry(operation, retries - 1, delay * 2, isProModel); // Keep original delay for math, but we slept longer
+      return withRetry(operation, retries - 1, delay * 1.5, isProModel); // Cap the delay multiplier at 1.5 instead of 2
     }
     throw error;
   }
@@ -558,7 +558,7 @@ export const generateImage = async (
       model: modelName,
       contents: { parts },
       config: config
-    }), 4, 2000, isPro); // Pass 4 retries and isPro flag
+    }), 2, 1000, isPro); // Changed to 2 retries and 1000ms delay for fast failure
 
     let response: GenerateContentResponse;
 
