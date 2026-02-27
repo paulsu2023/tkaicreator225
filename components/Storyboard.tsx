@@ -119,7 +119,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
                             <div className="absolute bottom-2 left-2 z-20 flex flex-col gap-1 items-start">
                                 <div className="bg-black/70 backdrop-blur-md px-2 py-1 rounded text-[9px] text-white flex items-center gap-1 border border-white/10 shadow-lg">
                                     <Activity size={10} className={asset.actualModelUsed.includes('flash') ? "text-yellow-400" : "text-sky-400"} />
-                                    {asset.actualModelUsed.includes('flash') ? 'Banana (降级)' : 'Banana Pro'}
+                                    {asset.actualModelUsed.includes('flash') ? 'Flash 3.1 (降级)' : 'Banana Pro'}
                                 </div>
                                 {asset.actualModelUsed.includes('flash') && (
                                     <button
@@ -301,15 +301,19 @@ export const Storyboard: React.FC<Props> = ({
             const scene1Ref = forcedReferenceImage || (scenes[0] && scenes[0].startImage?.data);
 
             if (isSubsequentScene && scene1Ref) {
-                // 1. Add Scene 1 Anchor
+                // 1. Add Scene 1 Anchor (For Character/Style Consistency)
                 referenceImages.push(scene1Ref);
 
-                // 2. Add Backgrounds (Optional, but good for environment consistency)
-                if (backgroundImages && backgroundImages.length > 0) {
-                    referenceImages.push(...backgroundImages.slice(0, 1));
+                // 2. CRITIACAL: ALWAYS add Product Image for subsequent scenes to prevent product drift
+                if (productImages && productImages.length > 0) {
+                    referenceImages.push(productImages[0]);
                 }
 
-                // DO NOT ADD modelImages or productImages here. Scene 1 is the master.
+                // 3. Add Backgrounds (Optional, but good for environment consistency)
+                if (backgroundImages && backgroundImages.length > 0) {
+                    const remaining = 3 - referenceImages.length;
+                    if (remaining > 0) referenceImages.push(...backgroundImages.slice(0, remaining));
+                }
 
             } else {
                 // SCENE 1 GENERATION (or no anchor available)

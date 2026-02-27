@@ -263,16 +263,19 @@ export const analyzeProduct = async (
        - **严禁** 分屏 (Split Screen)、拼图 (Collage)、多格画面。
        - **严禁** 出现任何文字、字幕、水印、UI 界面元素。
        - 确保画面主体位于画面中心，四周留有余地，避免被裁切。
-     - **产品绝对一致性 (Product Absolute Consistency - CRITICAL)**:
-       - **你必须精准识别用户上传的产品图究竟是什么**。
-       - 例如：如果是**穿戴甲/美甲 (Press-on Nails)**，你必须识别出它的排列方式。如果是一排5个，默认分别对应（大拇指、食指、中指、无名指、小指）；如果是两排，默认第一排是左手，第二排是右手。
-       - **生成画面的要求**：分镜中如果出现人物试用/佩戴该产品，**必须在 'visual_en' 中极其详尽地描述该产品的每一个细节**（颜色、花纹、材质、佩戴位置），确保AI生成的画面中，产品与用户原图**100%完全一致**。绝对不能由AI随机发散产品的外观！
-     - **背景规则 (绝对一致性)**: 
-       - 如果用户提供了背景图，必须使用。
-       - 如果用户**没有**提供背景图，请设定一个**唯一**的核心高格调场景（如 "Modern minimalist living room", "Cozy Bedroom", "Sunlit Studio"）。**严禁**随意切换场景。
-       - **负面提示 (Negative Constraints)**: 除非产品是大型工业设备，否则**绝对禁止**生成工厂 (Factory)、仓库 (Warehouse)、杂乱的货架 (Messy Shelves) 或昏暗的工业环境。背景必须干净、高级、生活化。
-     - **模特规则**: 分镜中的人物必须符合 **${market.culture}** 的种族和审美特征，同时要考虑 **${targetLanguage}** 的语言背景（例如在美国市场选择西班牙语，人物可能需要符合拉丁裔特征）。
-     - **声音选角 (Casting)**: 必须从提供的声音列表中，选择最符合Scene 1模特特征（性别、年龄、风格）的声音。
+     - **产品绝对一致性 (Product Absolute Consistency - CRITICAL, NO EXCEPTIONS)**:
+       - **你必须死死盯住用户上传的产品原图**。精确提取其【具体的颜色、材质、花纹、Logo位置、反光细节】。
+       - 分镜中一旦涉及到该产品（尤其是特写或佩戴/试用），**必须在 'visual_en' 中极其详尽、逐字逐句地描述该产品的每一个物理细节**，不要只写 "the product"，要写 "a glossy cherry red lipstick with a gold metallic cap" 类似的精确描述。
+       - **严禁 AI 自由发散**，生成画面的产品必须与用户原图 **100%完全一致**。如果特征提取不准，就会导致发散！
+     - **背景规则 (绝对一致性)**:
+       - 如果用户提供了背景图，必须强制在每一幕引用该背景环境。
+       - 如果用户**没有**提供背景图，请设定一个**简单、统一**的核心高格调场景（如 "Clean white studio background", "Soft warm modern bathroom"）。**严禁**随意变换环境，或生成复杂的背景（复杂的背景会显著增加大模型算力资源消耗并导致失败）。
+       - **负面提示 (Negative Constraints)**: 严禁生成工厂 (Factory)、仓库、大卖场、杂乱房间环境。背景必须干净、简单。
+     - **动作与运镜的精简优先**:
+       - 动作与运镜必须“克制、简单、稳定”。
+       - **避免** “高速运动”、“疯狂旋转”、“杂乱无章的群体动作”。过多的动作变量极易导致画面崩坏以及 503 错误。
+     - **模特规则**: 分镜中的人物必须符合 **${market.culture}** 的真实特征。不要追求过度完美的AI网感脸，而是真实、有质感的人。
+     - **声音选角 (Casting)**: 必须从提供的声音列表中选择最符合。
   5. **TikTok 合规专员 (Enhanced Compliance)**: 
      - 深度审查内容是否符合 **${market.label}** 的法律法规（如美国 FTC、欧盟 GDPR/CE 等）。
      - 针对 **${product.title}** 的品类（如保健品、美妆、电子产品）进行特定合规检查。
@@ -527,8 +530,8 @@ export const generateImage = async (
   }
 
   // STRONG NEGATIVE CONSTRAINTS TO PREVENT SPLIT SCREENS AND TEXT
-  // Added "cut off, cropped, out of frame, white borders" to ensure image integrity
-  const negativeConstraints = " DO NOT GENERATE: split screen, collage, grid, multiple views, multiple frames, text, subtitles, caption, watermark, logo, ui interface, website, 3d render, cartoon, anime, illustration, painting, plastic skin, smooth skin, artificial, blurry, distorted face, cut off, cropped, out of frame, white borders, frame within frame. ";
+  // Added strict requirements to not hallucinate elements or break product consistency, simplifying the render target to lower load and failure rate.
+  const negativeConstraints = " DO NOT GENERATE: different product, wrong colors, wrong textures, fake product design, background clutter, split screen, collage, grid, multiple views, multiple frames, text, subtitles, caption, watermark, logo, ui interface, website, 3d render, cartoon, anime, illustration, painting, plastic skin, smooth skin, artificial, blurry, distorted face, cut off, cropped, out of frame, white borders, frame within frame. ";
 
   const finalPrompt = textPrompt + realismBoosters + negativeConstraints;
 
@@ -579,13 +582,17 @@ export const generateImage = async (
     // Pass through AbortError
     if (error.name === 'AbortError') throw error;
 
-    // Trigger fallback if not aborted, as 500/503/429 all mean Pro is struggling
-    console.warn(`Primary image model (${modelName}) failed/exhausted. Error: ${error.message}. Falling back to free banana model (${GEMINI_MODEL_IMAGE_FALLBACK})...`);
+    // Trigger fallback: Banana Pro failed -> switch to Gemini 3.1 Flash Image
+    console.warn(`🔄 Banana Pro (${modelName}) 生成失败: ${error.message}. 正在切换到 Gemini 3.1 Flash Image (${GEMINI_MODEL_IMAGE_FALLBACK})...`);
     try {
-      // Remove imageSize specific config as it might not be supported by fallback
-      const fallbackConfig = {
+      // Gemini 3.1 Flash Image supports aspectRatio; also try imageSize
+      const fallbackConfig: any = {
         imageConfig: { aspectRatio: aspectRatio as any }
       };
+      // Gemini 3.1 Flash Image also supports imageSize
+      if (resolution) {
+        fallbackConfig.imageConfig.imageSize = resolution as any;
+      }
 
       const fallbackApiCall = withRetry<GenerateContentResponse>(() => client.models.generateContent({
         model: GEMINI_MODEL_IMAGE_FALLBACK,
@@ -607,11 +614,12 @@ export const generateImage = async (
         response = await fallbackApiCall;
       }
       const base64Data = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+      console.warn(`✅ Gemini 3.1 Flash Image 回退成功`);
       return { base64: base64Data, actualModelUsed: GEMINI_MODEL_IMAGE_FALLBACK };
     } catch (fallbackError: any) {
       // Pass through AbortError from fallback
       if (fallbackError.name === 'AbortError') throw fallbackError;
-      // Throw original error or new error
+      console.error(`❌ Gemini 3.1 Flash Image 回退也失败: ${fallbackError.message}`);
       throw fallbackError;
     }
   }

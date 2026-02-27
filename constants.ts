@@ -8,10 +8,10 @@ export const GEMINI_MODEL_ANALYSIS = 'gemini-3-pro-preview';
 export const GEMINI_MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-flash';
 
 // Using Gemini 3.0 Pro Image (Banana Pro equivalent) for high quality assets
-export const GEMINI_MODEL_IMAGE = 'gemini-3-pro-image-preview'; 
+export const GEMINI_MODEL_IMAGE = 'gemini-3-pro-image-preview';
 
-// Fallback Image Model (Flash Image) - Kept for reference but unused in strict mode
-export const GEMINI_MODEL_IMAGE_FALLBACK = 'gemini-2.5-flash-image';
+// Fallback Image Model - Gemini 3.1 Flash Image (2026-02-26 上线)
+export const GEMINI_MODEL_IMAGE_FALLBACK = 'gemini-3.1-flash-image-preview';
 
 // TTS Model
 export const GEMINI_MODEL_TTS = 'gemini-2.5-flash-preview-tts';
