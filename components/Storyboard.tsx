@@ -293,53 +293,35 @@ export const Storyboard: React.FC<Props> = ({
             // Use the specific Text-to-Image prompt if available, otherwise fall back to the main imagePrompt (which might be JSON)
             let prompt = customPrompt || scene.prompt.textPrompt || scene.prompt.imagePrompt;
             let referenceImages: string[] = [];
-
-            // STRICT CONSISTENCY LOGIC:
-            // If we are generating Scene 2+ and we have Scene 1 (anchor), we use Scene 1 AS THE PRIMARY SOURCE OF TRUTH.
-            // We purposefully EXCLUDE the raw 'modelImages' uploads to prevent conflict between the generated look and raw photos.
-
+            const hasProduct = productImages && productImages.length > 0;
             const scene1Ref = forcedReferenceImage || (scenes[0] && scenes[0].startImage?.data);
+            const currentStartImg = scene.startImage?.data;
 
-            if (isSubsequentScene && scene1Ref) {
-                // 1. Add Scene 1 Anchor (For Character/Style Consistency)
+            // PRECISE REFERENCE IMAGE SELECTION (Max 2 images to prevent 500/429 limits)
+            if (type === 'middle' || type === 'end') {
+                // 1. For middle/end frames, the best anchor is the Start Frame of the SAME scene.
+                if (currentStartImg) referenceImages.push(currentStartImg);
+                else if (scene1Ref) referenceImages.push(scene1Ref); // Fallback
+
+                // 2. Add product image to ensure it doesn't drift during the shot
+                if (hasProduct) referenceImages.push(productImages[0]);
+
+            } else if (isSubsequentScene && scene1Ref) {
+                // 1. For Start frame of Scene 2+, use Scene 1 Start as the unified anchor
                 referenceImages.push(scene1Ref);
 
-                // 2. CRITIACAL: ALWAYS add Product Image for subsequent scenes to prevent product drift
-                if (productImages && productImages.length > 0) {
-                    referenceImages.push(productImages[0]);
-                }
-
-                // 3. Add Backgrounds (Optional, but good for environment consistency)
-                if (backgroundImages && backgroundImages.length > 0) {
-                    const remaining = 3 - referenceImages.length;
-                    if (remaining > 0) referenceImages.push(...backgroundImages.slice(0, remaining));
-                }
+                // 2. Add product image
+                if (hasProduct) referenceImages.push(productImages[0]);
 
             } else {
-                // SCENE 1 GENERATION (or no anchor available)
-                // Use all available raw references to establish the look.
+                // 1. For Start frame of Scene 1 (Initial Generation)
+                if (hasProduct) referenceImages.push(productImages[0]);
 
-                // CRITICAL: We prioritize productImages FIRST for absolute product consistency.
-                if (productImages && productImages.length > 0) referenceImages.push(...productImages);
-
+                // 2. Add Model > Background 
                 if (modelImages && modelImages.length > 0) {
-                    const remaining = 3 - referenceImages.length;
-                    if (remaining > 0) referenceImages.push(...modelImages.slice(0, remaining));
-                }
-
-                if (backgroundImages && backgroundImages.length > 0) {
-                    const remaining = 3 - referenceImages.length;
-                    if (remaining > 0) referenceImages.push(...backgroundImages.slice(0, remaining));
-                }
-            }
-
-            // LOGIC: Intermediate frame handling (Self-Consistency within the scene)
-            if (type === 'middle' || type === 'end') {
-                const startImg = scene.startImage?.data;
-                // If we have our own start frame, add it to the FRONT of references for this specific shot
-                // effectively making it [StartFrame, Scene1Ref, ...]
-                if (startImg) {
-                    referenceImages.unshift(startImg);
+                    referenceImages.push(modelImages[0]);
+                } else if (backgroundImages && backgroundImages.length > 0) {
+                    referenceImages.push(backgroundImages[0]);
                 }
             }
 
