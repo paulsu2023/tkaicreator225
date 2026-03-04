@@ -265,10 +265,16 @@ export const Storyboard: React.FC<Props> = ({
         const sceneIndex = scenes.findIndex(s => s.id === scene.id);
 
         // Use forcedReferenceImage if provided, otherwise fallback to scene[0] if we are scene 2+
-        // If sceneIndex is -1 (called from handleGenerateRemaining with stale object), we rely on forcedReferenceImage.
         const isSubsequentScene = sceneIndex > 0 || (sceneIndex === -1 && forcedReferenceImage);
 
-        if (isSubsequentScene && !forcedReferenceImage && !scenes[0].startImage?.data) {
+        // Helper: extract raw base64 from a data URL or return as-is if already raw base64
+        const toBase64 = (urlOrBase64?: string): string | undefined => {
+            if (!urlOrBase64) return undefined;
+            const PREFIX = 'data:image/jpeg;base64,';
+            return urlOrBase64.startsWith(PREFIX) ? urlOrBase64.slice(PREFIX.length) : urlOrBase64;
+        };
+
+        if (isSubsequentScene && !forcedReferenceImage && !scenes[0].startImage?.url) {
             alert("请先生成【分镜 1】。后续分镜需要基于分镜1保持角色一致性。");
             return;
         }
@@ -294,21 +300,22 @@ export const Storyboard: React.FC<Props> = ({
             let prompt = customPrompt || scene.prompt.textPrompt || scene.prompt.imagePrompt;
             let referenceImages: string[] = [];
             const hasProduct = productImages && productImages.length > 0;
-            const scene1Ref = forcedReferenceImage || (scenes[0] && scenes[0].startImage?.data);
-            const currentStartImg = scene.startImage?.data;
+            // For anchor: use Scene 1 start frame. Extract raw base64 if it's a data URL.
+            const scene1AnchorRaw = forcedReferenceImage || toBase64(scenes[0]?.startImage?.url);
+            const currentStartRaw = toBase64(scene.startImage?.url);
 
             // PRECISE REFERENCE IMAGE SELECTION (Max 2 images to prevent 500/429 limits)
             if (type === 'middle' || type === 'end') {
                 // 1. For middle/end frames, the best anchor is the Start Frame of the SAME scene.
-                if (currentStartImg) referenceImages.push(currentStartImg);
-                else if (scene1Ref) referenceImages.push(scene1Ref); // Fallback
+                if (currentStartRaw) referenceImages.push(currentStartRaw);
+                else if (scene1AnchorRaw) referenceImages.push(scene1AnchorRaw); // Fallback
 
                 // 2. Add product image to ensure it doesn't drift during the shot
                 if (hasProduct) referenceImages.push(productImages[0]);
 
-            } else if (isSubsequentScene && scene1Ref) {
+            } else if (isSubsequentScene && scene1AnchorRaw) {
                 // 1. For Start frame of Scene 2+, use Scene 1 Start as the unified anchor
-                referenceImages.push(scene1Ref);
+                referenceImages.push(scene1AnchorRaw);
 
                 // 2. Add product image
                 if (hasProduct) referenceImages.push(productImages[0]);
@@ -351,9 +358,10 @@ export const Storyboard: React.FC<Props> = ({
 
             const asset: GeneratedAsset = {
                 type: 'image',
+                // MEMORY OPTIMIZATION: Only store the Data URL, do NOT duplicate as raw base64 `.data`
+                // This halves memory usage per image. Reference extraction uses url.slice(prefix.length).
                 url: `data:image/jpeg;base64,${result.base64}`,
                 mimeType: 'image/jpeg',
-                data: result.base64,
                 actualModelUsed: result.actualModelUsed
             };
 

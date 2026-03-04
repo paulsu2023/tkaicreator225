@@ -5,6 +5,7 @@ import { Bot, Layers, LayoutTemplate, Settings2, Sparkles, AlertCircle, X, Chevr
 import { ImageUploader, VideoUploader } from './components/ImageUploader';
 import { Storyboard } from './components/Storyboard';
 import { AnalysisLoader } from './components/AnalysisLoader';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { analyzeProduct } from './services/geminiService';
 import { AppState, AspectRatio, VideoMode, StoryboardScene, ImageResolution } from './types';
 import { ASPECT_RATIOS, VIDEO_MODES, IMAGE_RESOLUTIONS, TARGET_MARKETS, IMAGE_MODELS, CAMERA_DEVICES, SHOOTING_STYLES, WORLD_LANGUAGES } from './constants';
@@ -773,4 +774,10 @@ function App() {
   );
 }
 
-export default App;
+export default function WrappedApp() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}
