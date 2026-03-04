@@ -4,7 +4,7 @@ import { Play, Image as ImageIcon, Wand2, Copy, ChevronDown, ChevronUp, RefreshC
 import { StoryboardScene, VideoMode, AspectRatio, GeneratedAsset, ImageResolution } from '../types';
 import { generateImage, generateSpeech, optimizePrompt } from '../services/geminiService';
 import { AnalysisLoader } from './AnalysisLoader';
-import { CAMERA_DEVICES, SHOOTING_STYLES } from '../constants';
+import { CAMERA_DEVICES, SHOOTING_STYLES, GEMINI_MODEL_IMAGE_FALLBACK } from '../constants';
 
 const AudioPlayer: React.FC<{ url: string }> = ({ url }) => {
     return (
@@ -118,10 +118,10 @@ const AssetCard: React.FC<AssetCardProps> = ({
                         {asset.actualModelUsed && (
                             <div className="absolute bottom-2 left-2 z-20 flex flex-col gap-1 items-start">
                                 <div className="bg-black/70 backdrop-blur-md px-2 py-1 rounded text-[9px] text-white flex items-center gap-1 border border-white/10 shadow-lg">
-                                    <Activity size={10} className={asset.actualModelUsed.includes('flash') ? "text-yellow-400" : "text-sky-400"} />
-                                    {asset.actualModelUsed.includes('flash') ? 'Flash 3.1 (降级)' : 'Banana Pro'}
+                                    <Activity size={10} className={asset.actualModelUsed === 'gemini-3-pro-image-preview' ? "text-sky-400" : "text-yellow-400"} />
+                                    {asset.actualModelUsed === 'gemini-3-pro-image-preview' ? '🍌 Banana Pro' : '⚡ Banana 2'}
                                 </div>
-                                {asset.actualModelUsed.includes('flash') && (
+                                {asset.actualModelUsed === GEMINI_MODEL_IMAGE_FALLBACK && imageModel === 'gemini-3-pro-image-preview' && (
                                     <button
                                         onClick={onGen}
                                         className="bg-brand-600 hover:bg-brand-500 text-white px-2 py-1 rounded text-[9px] flex items-center gap-1 shadow-lg transition-colors border border-brand-400/50"
@@ -461,7 +461,7 @@ export const Storyboard: React.FC<Props> = ({
                     <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 flex items-center gap-2 hidden lg:flex">
                         <span className="text-[10px] font-bold text-slate-500 uppercase">Model</span>
                         <span className="text-[10px] text-sky-400 font-mono">
-                            {imageModel.includes('flash') ? 'Banana' : 'Banana Pro'}
+                            {imageModel === 'gemini-3-pro-image-preview' ? '🍌 Banana Pro' : '⚡ Banana 2'}
                         </span>
                     </div>
 

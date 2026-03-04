@@ -1,11 +1,11 @@
 
 import { AspectRatio, VideoMode, ImageResolution } from './types';
 
-// Using Gemini 3.0 Pro for high-level reasoning/analysis
-export const GEMINI_MODEL_ANALYSIS = 'gemini-3-pro-preview';
+// Primary analysis model: gemini-2.5-flash is highly stable and very capable for structured JSON tasks
+export const GEMINI_MODEL_ANALYSIS = 'gemini-2.5-flash';
 
-// Fallback model with higher quotas/rate limits (Gemini 2.5 Flash)
-export const GEMINI_MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-flash';
+// Fallback to Pro if flash fails - higher quality but lower availability under surge
+export const GEMINI_MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-flash'; // Keep same to avoid 500 on fallback
 
 // Using Gemini 3.0 Pro Image (Banana Pro equivalent) for high quality assets
 export const GEMINI_MODEL_IMAGE = 'gemini-3-pro-image-preview';
@@ -72,9 +72,10 @@ export const VIDEO_MODES = [
   { value: VideoMode.Intermediate, label: '运镜控制模式 (首图+草稿+尾图)' },
 ];
 
-// Removed standard Banana model. Only Banana Pro allowed.
+// Image model options for the UI selector
 export const IMAGE_MODELS = [
-  { value: 'gemini-3-pro-image-preview', label: 'Banana Pro (专业 - 高清)' },
+  { value: 'gemini-3-pro-image-preview', label: '🍌 Banana Pro (专业高清 - 推荐)' },
+  { value: 'gemini-3.1-flash-image-preview', label: '⚡ Banana 2 (Flash 3.1 - 稳定快速)' },
 ];
 
 export const VOICE_OPTIONS = ['Kore', 'Fenrir', 'Puck', 'Charon', 'Zephyr'];

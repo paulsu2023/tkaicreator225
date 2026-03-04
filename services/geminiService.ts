@@ -415,15 +415,23 @@ export const analyzeProduct = async (
   let response: GenerateContentResponse;
 
   try {
-    // Try Primary Model (Pro)
+    // Try Primary Model (gemini-2.5-flash - stable and fast)
     response = await withRetry(() => client.models.generateContent({
       model: GEMINI_MODEL_ANALYSIS,
       contents: { parts },
       config: generationConfig
     }));
   } catch (error: any) {
-    if (isQuotaError(error)) {
-      console.warn("Primary model quota exhausted. Switching to Fallback (Flash)...");
+    const msg = error.message || '';
+    const status = error.status || error.code;
+    // Trigger fallback on: quota (429), overloaded (503), internal error (500), or high demand message
+    const shouldFallback =
+      status === 429 || status === 503 || status === 500 ||
+      msg.includes('quota') || msg.includes('exhausted') || msg.includes('RESOURCE_EXHAUSTED') ||
+      msg.includes('overloaded') || msg.includes('high demand') || msg.includes('temporarily unavailable');
+
+    if (shouldFallback && GEMINI_MODEL_ANALYSIS_FALLBACK !== GEMINI_MODEL_ANALYSIS) {
+      console.warn(`[Analysis] Primary model failed (${msg}). Switching to fallback model...`);
       try {
         response = await withRetry(() => client.models.generateContent({
           model: GEMINI_MODEL_ANALYSIS_FALLBACK,
