@@ -27,10 +27,11 @@ interface AssetCardProps {
     sceneIndex?: number;
     type?: string;
     aspectRatio?: AspectRatio;
+    imageModel: string;
 }
 
 const AssetCard: React.FC<AssetCardProps> = ({
-    label, asset, loading, onGen, onStop, onPreview, onViewPrompt, icon, highlight, disabled, title, sceneIndex, type, aspectRatio = AspectRatio.Ratio_9_16
+    label, asset, loading, onGen, onStop, onPreview, onViewPrompt, icon, highlight, disabled, title, sceneIndex, type, aspectRatio = AspectRatio.Ratio_9_16, imageModel
 }) => {
 
     // Calculate Dynamic Dimensions based on Aspect Ratio
@@ -676,6 +677,7 @@ export const Storyboard: React.FC<Props> = ({
                                                 sceneIndex={index + 1}
                                                 type="start"
                                                 aspectRatio={aspectRatio}
+                                                imageModel={imageModel}
                                             />
 
                                             {(videoMode === VideoMode.StartEnd || videoMode === VideoMode.Intermediate) && (
@@ -700,6 +702,7 @@ export const Storyboard: React.FC<Props> = ({
                                                         sceneIndex={index + 1}
                                                         type="draft"
                                                         aspectRatio={aspectRatio}
+                                                        imageModel={imageModel}
                                                     />
                                                     <div className="mt-20 text-slate-700 hidden md:block"><ArrowRight size={16} /></div>
                                                 </>
@@ -722,6 +725,7 @@ export const Storyboard: React.FC<Props> = ({
                                                         sceneIndex={index + 1}
                                                         type="end"
                                                         aspectRatio={aspectRatio}
+                                                        imageModel={imageModel}
                                                     />
                                                 </>
                                             )}
