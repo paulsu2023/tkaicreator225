@@ -208,14 +208,19 @@ export const Storyboard: React.FC<Props> = ({
     // NEW: Generate All Subsequent Scenes based on Scene 1
     const handleGenerateRemaining = async () => {
         const scene1 = scenes[0];
-        if (!scene1.startImage?.data) {
+        // FIX: Start image no longer has .data (memory optimization), so we check .url
+        if (!scene1.startImage?.url) {
             alert("必须先生成【分镜 1】的画面，作为后续分镜的一致性基准。");
             setExpandedScene(scene1.id);
             return;
         }
 
         setIsGeneratingAll(true);
-        const anchorImage = scene1.startImage.data;
+
+        // Extract raw base64 from the URL for the anchor
+        const anchorUrl = scene1.startImage.url;
+        const PREFIX = 'data:image/jpeg;base64,';
+        const anchorImage = anchorUrl.startsWith(PREFIX) ? anchorUrl.slice(PREFIX.length) : anchorUrl;
 
         // Iterate sequentially to prevent rate limits and ensure order
         for (let i = 1; i < scenes.length; i++) {
@@ -231,7 +236,7 @@ export const Storyboard: React.FC<Props> = ({
                 // Create a temporary updated scene object to pass context to middle/end generation
                 const updatedSceneContext = {
                     ...scene,
-                    startImage: { ...scene.startImage, data: newStartBase64 }
+                    startImage: { ...scene.startImage, url: `data:image/jpeg;base64,${newStartBase64}` }
                 } as StoryboardScene;
 
                 if (videoMode === VideoMode.Intermediate) {
@@ -337,6 +342,24 @@ export const Storyboard: React.FC<Props> = ({
             if (videoMode === VideoMode.Intermediate && type === 'middle') {
                 targetResolution = ImageResolution.Res_1K;
             }
+
+            // INJECT EXPLICIT IMAGE MAPPING FOR GEMINI PRO
+            let consistencyPrompt = "";
+            if (referenceImages.length === 2) {
+                if ((type === 'middle' || type === 'end') || isSubsequentScene) {
+                    consistencyPrompt = "[CRITICAL INSTRUCTION] The FIRST reference image is the Anchor (character/environment). The SECOND reference image is the EXACT Product. You MUST feature the EXACT product from image 2 seamlessly into the scene of image 1 without altering the product's design or details. ";
+                } else {
+                    consistencyPrompt = "[CRITICAL INSTRUCTION] The FIRST reference image is the EXACT Product. The SECOND reference image is the Model/Background context. You MUST maintain the EXACT design of the product from image 1. ";
+                }
+            } else if (referenceImages.length === 1) {
+                if (hasProduct && referenceImages[0] === productImages[0]) {
+                    consistencyPrompt = "[CRITICAL INSTRUCTION] The reference image is the EXACT Product. You MUST feature this exact product prominently. ";
+                } else {
+                    consistencyPrompt = "[CRITICAL INSTRUCTION] The reference image is the Anchor scene. Keep the environment and characters consistent with it. ";
+                }
+            }
+
+            prompt = consistencyPrompt + prompt;
 
             // Resolve Camera/Style Prompts
             const cameraPrompt = CAMERA_DEVICES.find(c => c.value === cameraDevice)?.prompt || '';
