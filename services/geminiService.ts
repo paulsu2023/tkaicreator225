@@ -15,17 +15,17 @@ const VOICE_PROFILES: Record<string, string> = {
 // Storage key for user's custom API key in localStorage
 export const USER_API_KEY_STORAGE = 'user_gemini_api_key';
 
-// Helper: Get the effective API key (user key takes priority over env key)
+// Helper: Get user's custom API key from local storage
 export const getEffectiveApiKey = (): string => {
   const userKey = localStorage.getItem(USER_API_KEY_STORAGE);
   if (userKey && userKey.trim().length > 0) {
     return userKey.trim();
   }
-  return process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+  return ''; // Return empty to force proxy usage
 };
 
-// Helper to ensure API Key exists or guide user to select it
-const getClient = async (): Promise<GoogleGenAI> => {
+// Helper: Provide direct client if user key exists, otherwise provide Proxy client
+const getClient = async (): Promise<any> => {
   // @ts-ignore
   if (window.aistudio && window.aistudio.hasSelectedApiKey) {
     // @ts-ignore
@@ -38,14 +38,50 @@ const getClient = async (): Promise<GoogleGenAI> => {
   }
 
   // Priority 1: User-provided API key (from localStorage)
-  // Priority 2: Environment variable API key (from Vercel/build)
-  const apiKey = getEffectiveApiKey();
-
-  if (!apiKey) {
-    throw new Error("API Key 未配置。请在设置中输入您的 Google API Key，或在部署环境变量中设置 GEMINI_API_KEY。");
+  const userKey = getEffectiveApiKey();
+  if (userKey) {
+    return new GoogleGenAI({ apiKey: userKey });
   }
 
-  return new GoogleGenAI({ apiKey });
+  // Priority 2: Use Secure Vercel Proxy Route
+  return {
+    models: {
+      generateContent: async (options: any) => {
+        // Form the payload exactly as the proxy expects
+        const payload = {
+          model: options.model,
+          contents: Array.isArray(options.contents) ? options.contents : options.contents?.parts ? options.contents.parts : [options.contents],
+          config: options.config,
+          systemInstruction: options.config?.systemInstruction
+        };
+
+        const response = await fetch('/api/gemini-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          let errMsg = response.statusText;
+          try {
+            const errJson = await response.json();
+            errMsg = errJson.error || errJson.message || errMsg;
+          } catch(e) {}
+          throw { message: errMsg, status: response.status };
+        }
+
+        const data = await response.json();
+        
+        // Polyfill the .text property getter that the official SDK uses
+        return {
+          ...data,
+          get text() {
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          }
+        };
+      }
+    }
+  };
 };
 
 // Retry Helper
