@@ -47,11 +47,13 @@ const getClient = async (): Promise<any> => {
   return {
     models: {
       generateContent: async (options: any) => {
-        // Form the payload exactly as the proxy expects
+        // Construct correct config structure for the Vertex AI proxy (which then passes it to Google API)
+        const configToPass: any = { ...options.config };
+        
         const payload = {
           model: options.model,
-          contents: Array.isArray(options.contents) ? options.contents : options.contents?.parts ? options.contents.parts : [options.contents],
-          config: options.config,
+          contents: Array.isArray(options.contents) ? options.contents : options.contents?.parts ? [options.contents] : [options.contents],
+          config: configToPass,
           systemInstruction: options.config?.systemInstruction
         };
 
